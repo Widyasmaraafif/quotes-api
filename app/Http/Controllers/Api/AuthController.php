@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use App\Http\Resources\QuoteResource;
 
 use OpenApi\Attributes as OA;
 
@@ -106,6 +107,29 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Logged out'
+        ]);
+    }
+
+    #[OA\Get(
+        path: "/api/profile",
+        tags: ["Auth"],
+        summary: "Get user profile and liked quotes",
+        security: [["bearerAuth" => []]],
+        responses: [
+            new OA\Response(response: 200, description: "Successful operation")
+        ]
+    )]
+    public function profile(Request $request)
+    {
+        $user = $request->user()->load('likedQuotes.category');
+
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ],
+            'liked_quotes' => QuoteResource::collection($user->likedQuotes),
         ]);
     }
 }

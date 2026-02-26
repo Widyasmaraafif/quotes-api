@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Quote;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Resources\QuoteResource;
 
 use OpenApi\Attributes as OA;
 
@@ -53,7 +54,7 @@ class QuoteController extends Controller
 
         // Pagination
         $perPage = $request->input('per_page', 10);
-        return response()->json($query->paginate($perPage));
+        return QuoteResource::collection($query->paginate($perPage));
     }
 
     #[OA\Get(
@@ -70,7 +71,7 @@ class QuoteController extends Controller
             ->inRandomOrder()
             ->first();
 
-        return response()->json($quote);
+        return new QuoteResource($quote);
     }
 
     #[OA\Get(
@@ -89,7 +90,7 @@ class QuoteController extends Controller
                 ->first();
         });
 
-        return response()->json($quote);
+        return new QuoteResource($quote);
     }
 
     #[OA\Get(
@@ -106,9 +107,11 @@ class QuoteController extends Controller
     public function byCategory(Request $request, $id)
     {
         $perPage = $request->input('per_page', 10);
-        return Quote::with('category')
+        $quotes = Quote::with('category')
             ->where('category_id', $id)
             ->paginate($perPage);
+
+        return QuoteResource::collection($quotes);
     }
 
     #[OA\Get(
@@ -125,11 +128,13 @@ class QuoteController extends Controller
     public function byCategoryName(Request $request, $name)
     {
         $perPage = $request->input('per_page', 10);
-        return Quote::with('category')
+        $quotes = Quote::with('category')
             ->whereHas('category', function ($query) use ($name) {
                 $query->where('name', $name);
             })
             ->paginate($perPage);
+
+        return QuoteResource::collection($quotes);
     }
 
     #[OA\Post(
@@ -163,7 +168,7 @@ class QuoteController extends Controller
 
         $quote = Quote::create($request->all());
 
-        return response()->json($quote->load('category'), 201);
+        return new QuoteResource($quote->load('category'));
     }
 
     #[OA\Delete(

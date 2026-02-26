@@ -17,6 +17,7 @@ Route::middleware('throttle:api')->group(function () {
     Route::get('/quotes/category/name/{name}', [QuoteController::class, 'byCategoryName']);
 
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/profile', [AuthController::class, 'profile']);
         Route::post('/logout', [AuthController::class, 'logout']);
         
         Route::post('/quotes', [QuoteController::class, 'store']);

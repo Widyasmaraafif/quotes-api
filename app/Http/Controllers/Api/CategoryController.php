@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use App\Http\Resources\CategoryResource;
 
 use OpenApi\Attributes as OA;
 
@@ -20,7 +21,7 @@ class CategoryController extends Controller
     )]
     public function index()
     {
-        return response()->json(Category::with('quotes')->get());
+        return CategoryResource::collection(Category::with('quotes')->get());
     }
 
     #[OA\Post(
@@ -50,6 +51,6 @@ class CategoryController extends Controller
 
         $category = Category::create($request->all());
 
-        return response()->json($category, 201);
+        return new CategoryResource($category);
     }
 }
