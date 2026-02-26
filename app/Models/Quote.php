@@ -15,4 +15,16 @@ class Quote extends Model
     {
         return $this->belongsTo(Category::class);
     }
+
+    public function likes()
+    {
+        return $this->belongsToMany(User::class, 'likes');
+    }
+
+    public function getLikesCountAttribute()
+    {
+        return $this->likes()->count();
+    }
+
+    protected $appends = ['likes_count'];
 }
