@@ -77,4 +77,50 @@ class QuoteFeatureTest extends TestCase
 
         $response->assertStatus(401);
     }
+
+    public function test_quotes_list_includes_likes_info(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::create(['name' => 'Inspiration']);
+        $quote = Quote::create([
+            'quote' => 'Stay hungry, stay foolish',
+            'author' => 'Steve Jobs',
+            'category_id' => $category->id,
+        ]);
+
+        $user->likedQuotes()->attach($quote->id);
+
+        // Test as guest
+        $response = $this->getJson("/api/quotes");
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.likes_count', 1)
+            ->assertJsonPath('data.0.is_liked', false);
+
+        // Test as authenticated user
+        $response = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/quotes");
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.likes_count', 1)
+            ->assertJsonPath('data.0.is_liked', true);
+    }
+
+    public function test_random_quote_includes_likes_info(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::create(['name' => 'Inspiration']);
+        $quote = Quote::create([
+            'quote' => 'Stay hungry, stay foolish',
+            'author' => 'Steve Jobs',
+            'category_id' => $category->id,
+        ]);
+
+        $user->likedQuotes()->attach($quote->id);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->getJson("/api/quotes/random");
+        
+        $response->assertStatus(200)
+            ->assertJsonPath('data.likes_count', 1)
+            ->assertJsonPath('data.is_liked', true);
+    }
 }

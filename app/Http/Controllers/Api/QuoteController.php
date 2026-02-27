@@ -28,7 +28,14 @@ class QuoteController extends Controller
     )]
     public function index(Request $request)
     {
-        $query = Quote::with('category');
+        $query = Quote::with('category')
+            ->withCount('likes');
+
+        if (Auth::check()) {
+            $query->withExists(['likes as is_liked' => function ($q) {
+                $q->where('user_id', Auth::id());
+            }]);
+        }
 
         // Search by author or quote text
         if ($request->has('search')) {
@@ -67,9 +74,16 @@ class QuoteController extends Controller
     )]
     public function random()
     {
-        $quote = Quote::with('category')
-            ->inRandomOrder()
-            ->first();
+        $query = Quote::with('category')
+            ->withCount('likes');
+
+        if (Auth::check()) {
+            $query->withExists(['likes as is_liked' => function ($q) {
+                $q->where('user_id', Auth::id());
+            }]);
+        }
+
+        $quote = $query->inRandomOrder()->first();
 
         return new QuoteResource($quote);
     }
@@ -86,9 +100,15 @@ class QuoteController extends Controller
     {
         $quote = cache()->remember('qotd', now()->endOfDay(), function () {
             return Quote::with('category')
+                ->withCount('likes')
                 ->inRandomOrder()
                 ->first();
         });
+
+        // Set is_liked dynamically if user is logged in
+        if ($quote && Auth::check()) {
+            $quote->is_liked = $quote->likes()->where('user_id', Auth::id())->exists();
+        }
 
         return new QuoteResource($quote);
     }
@@ -107,9 +127,17 @@ class QuoteController extends Controller
     public function byCategory(Request $request, $id)
     {
         $perPage = $request->input('per_page', 10);
-        $quotes = Quote::with('category')
-            ->where('category_id', $id)
-            ->paginate($perPage);
+        $query = Quote::with('category')
+            ->withCount('likes')
+            ->where('category_id', $id);
+
+        if (Auth::check()) {
+            $query->withExists(['likes as is_liked' => function ($q) {
+                $q->where('user_id', Auth::id());
+            }]);
+        }
+
+        $quotes = $query->paginate($perPage);
 
         return QuoteResource::collection($quotes);
     }
@@ -128,11 +156,19 @@ class QuoteController extends Controller
     public function byCategoryName(Request $request, $name)
     {
         $perPage = $request->input('per_page', 10);
-        $quotes = Quote::with('category')
+        $query = Quote::with('category')
+            ->withCount('likes')
             ->whereHas('category', function ($query) use ($name) {
                 $query->where('name', $name);
-            })
-            ->paginate($perPage);
+            });
+
+        if (Auth::check()) {
+            $query->withExists(['likes as is_liked' => function ($q) {
+                $q->where('user_id', Auth::id());
+            }]);
+        }
+
+        $quotes = $query->paginate($perPage);
 
         return QuoteResource::collection($quotes);
     }

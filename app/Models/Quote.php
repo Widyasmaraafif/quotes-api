@@ -23,6 +23,9 @@ class Quote extends Model
 
     public function getLikesCountAttribute()
     {
+        if (array_key_exists('likes_count', $this->attributes)) {
+            return $this->attributes['likes_count'];
+        }
         return $this->likes()->count();
     }
 
