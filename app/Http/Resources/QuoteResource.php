@@ -19,6 +19,7 @@ class QuoteResource extends JsonResource
             'quote' => $this->quote,
             'author' => $this->author ?? 'Unknown',
             'category' => new CategoryResource($this->whenLoaded('category')),
+            'tags' => TagResource::collection($this->whenLoaded('tags')),
             'likes_count' => $this->likes_count ?? $this->likes()->count(),
             'is_liked' => $this->is_liked ?? ($request->user() ? $this->likes()->where('user_id', $request->user()->id)->exists() : false),
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),

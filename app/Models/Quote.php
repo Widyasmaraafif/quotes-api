@@ -21,6 +21,11 @@ class Quote extends Model
         return $this->belongsToMany(User::class, 'likes');
     }
 
+    public function tags()
+    {
+        return $this->belongsToMany(Tag::class);
+    }
+
     public function getLikesCountAttribute()
     {
         if (array_key_exists('likes_count', $this->attributes)) {

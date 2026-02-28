@@ -28,7 +28,7 @@ class QuoteController extends Controller
     )]
     public function index(Request $request)
     {
-        $query = Quote::with('category')
+        $query = Quote::with(['category', 'tags'])
             ->withCount('likes');
 
         if (Auth::check()) {
@@ -59,6 +59,14 @@ class QuoteController extends Controller
             });
         }
 
+        // Filter by tag slug
+        if ($request->has('tag')) {
+            $tagSlug = $request->input('tag');
+            $query->whereHas('tags', function ($q) use ($tagSlug) {
+                $q->where('slug', $tagSlug);
+            });
+        }
+
         // Pagination
         $perPage = $request->input('per_page', 10);
         return QuoteResource::collection($query->paginate($perPage));
@@ -74,7 +82,7 @@ class QuoteController extends Controller
     )]
     public function random()
     {
-        $query = Quote::with('category')
+        $query = Quote::with(['category', 'tags'])
             ->withCount('likes');
 
         if (Auth::check()) {
@@ -99,7 +107,7 @@ class QuoteController extends Controller
     public function qotd()
     {
         $quote = cache()->remember('qotd', now()->endOfDay(), function () {
-            return Quote::with('category')
+            return Quote::with(['category', 'tags'])
                 ->withCount('likes')
                 ->inRandomOrder()
                 ->first();
@@ -127,9 +135,40 @@ class QuoteController extends Controller
     public function byCategory(Request $request, $id)
     {
         $perPage = $request->input('per_page', 10);
-        $query = Quote::with('category')
+        $query = Quote::with(['category', 'tags'])
             ->withCount('likes')
             ->where('category_id', $id);
+
+        if (Auth::check()) {
+            $query->withExists(['likes as is_liked' => function ($q) {
+                $q->where('user_id', Auth::id());
+            }]);
+        }
+
+        $quotes = $query->paginate($perPage);
+
+        return QuoteResource::collection($quotes);
+    }
+
+    #[OA\Get(
+        path: "/api/quotes/tag/{slug}",
+        tags: ["Quotes"],
+        summary: "Get quotes by tag slug",
+        parameters: [
+            new OA\Parameter(name: "slug", in: "path", required: true, schema: new OA\Schema(type: "string"))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "Successful operation")
+        ]
+    )]
+    public function byTag(Request $request, $slug)
+    {
+        $perPage = $request->input('per_page', 10);
+        $query = Quote::with(['category', 'tags'])
+            ->withCount('likes')
+            ->whereHas('tags', function ($query) use ($slug) {
+                $query->where('slug', $slug);
+            });
 
         if (Auth::check()) {
             $query->withExists(['likes as is_liked' => function ($q) {
@@ -156,7 +195,7 @@ class QuoteController extends Controller
     public function byCategoryName(Request $request, $name)
     {
         $perPage = $request->input('per_page', 10);
-        $query = Quote::with('category')
+        $query = Quote::with(['category', 'tags'])
             ->withCount('likes')
             ->whereHas('category', function ($query) use ($name) {
                 $query->where('name', $name);
@@ -185,7 +224,8 @@ class QuoteController extends Controller
                 properties: [
                     new OA\Property(property: "quote", type: "string"),
                     new OA\Property(property: "author", type: "string"),
-                    new OA\Property(property: "category_id", type: "integer")
+                    new OA\Property(property: "category_id", type: "integer"),
+                    new OA\Property(property: "tags", type: "array", items: new OA\Items(type: "string"))
                 ]
             )
         ),
@@ -199,12 +239,26 @@ class QuoteController extends Controller
         $request->validate([
             'quote' => 'required',
             'author' => 'nullable',
-            'category_id' => 'nullable|exists:categories,id'
+            'category_id' => 'nullable|exists:categories,id',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string'
         ]);
 
-        $quote = Quote::create($request->all());
+        $quote = Quote::create($request->only(['quote', 'author', 'category_id']));
 
-        return new QuoteResource($quote->load('category'));
+        if ($request->has('tags')) {
+            $tagIds = [];
+            foreach ($request->input('tags') as $tagName) {
+                $tag = \App\Models\Tag::firstOrCreate(
+                    ['name' => $tagName],
+                    ['slug' => \Illuminate\Support\Str::slug($tagName)]
+                );
+                $tagIds[] = $tag->id;
+            }
+            $quote->tags()->sync($tagIds);
+        }
+
+        return new QuoteResource($quote->load(['category', 'tags']));
     }
 
     #[OA\Delete(
